@@ -1,6 +1,6 @@
 from PIL import Image
 
-image = Image.open("./lizard.jpg")
+image = Image.open("./colorSwatching/lizard.jpg")
 data = image.load()
 
 for x in range(image.width):
@@ -10,8 +10,9 @@ for x in range(image.width):
         r = pixel[0]
         g = pixel[1]
         b = pixel[2]
-        if (g < 120):
-            k = .33*r + .33*g + .33*b
+        
+        if (r < 150):
+            k = (.33*r) + (.33*g) + (.33*b)
             k = int(k)
             data[x,y] = (k,k,k)
-image.save("./lizard.png")
+image.save("./colorSwatching/lizard.png")

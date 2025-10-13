@@ -2,13 +2,13 @@ from PIL import Image
 import numpy as np
 import math
 
-originalImage = Image.open("./frog.jpg")
+originalImage = Image.open("./wave.jpg")
 originalRaster = originalImage.load()
 
 w = originalImage.width
 h = originalImage.height
 
-
+scaleDownFactor = 0.25
 
 horizontalTransform = ["horizontalFlip", (w, h), np.array([[-1, 0, w-1],
                                                            [0, 1, 0],
@@ -18,9 +18,13 @@ translate = ["translate", (w, h), np.array([[1, 0, 100],
                                            [0, 1, -200],
                                            [0, 0, 1]])]
 
-scaleUp = ["scaleUp", (w*2, h*2), np.array([[1, 0, 100],
-                                            [0, 1, -200],
+scaleUp = ["scaleUp", (w*2, h*2), np.array([[2, 0, 0],
+                                            [0, 2, 0],
                                             [0, 0, 1]])]
+
+scaleDown = ["scaleDown", (int(w * scaleDownFactor), int(h * scaleDownFactor)), np.array([[scaleDownFactor, 0, 0],
+                                                                                   [0, scaleDownFactor, 0],
+                                                                                   [0,               0, 1]])]
 
 radians = math.radians(45)
 
@@ -51,7 +55,7 @@ centeredRotation = shiftDownRight @ rotationMatrix @ shiftUpLeft
 
 rotation = ["rotation", newSize, centeredRotation]
 
-transforms = [rotation]
+transforms = [scaleDown, scaleUp]
 
 for name, size, matrix in transforms:
     
@@ -66,8 +70,8 @@ for name, size, matrix in transforms:
             vector = np.array([x, y, 1])
             result = invMatrix @ vector
 
-            xp = result[0]
-            yp = result[1]
+            xp = int(result[0])
+            yp = int(result[1])
 
             if 0 <= xp < originalImage.width and 0 <= yp < originalImage.height:
                 newRaster[x, y] = originalRaster[xp, yp]

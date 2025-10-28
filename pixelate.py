@@ -2,7 +2,7 @@ from PIL import Image
 import numpy as np
 
 
-image = Image.open('./frog.jpg')
+image = Image.open('./wave.jpg')
 raster = image.load()
 
 w = image.width

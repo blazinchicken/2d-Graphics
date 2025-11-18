@@ -1,4 +1,4 @@
-from PIL import Image
+from PIL import Image, ImageTk
 import numpy as np
 import math
 import tkinter as tk
@@ -48,17 +48,23 @@ class application(tk.Frame):
     def create_main_container(self):
         self.main_container = tk.Frame(
             self.main_frame,
-            background=self.color3
+            background=self.color3,
+            width=500,
+            height=500
         )
+        self.main_container.pack_propagate(False)
         self.main_container.columnconfigure(0, weight=1)
         self.main_container.rowconfigure(0, weight=1)
         
         self.main_container.grid(column=0, row=1, sticky=tk.NSEW)
     
     def create_title_display(self):
-        self.title_container = tk.Frame(
+        self.title_container = tk.Label(
             self.main_frame,
             background=self.color2,
+            foreground=self.color6,
+            font=('Ariel', 30, 'bold'),
+            text="File Chosen!"
         )
         self.title_container.columnconfigure(0, weight=1)
         self.title_container.rowconfigure(1, weight=1)
@@ -74,53 +80,6 @@ class application(tk.Frame):
         self.image_select.rowconfigure(1, weight=1)
         
         self.image_select.grid(column=0, row=2, sticky=tk.NSEW)
-        
-        def choose_file(self):
-            global imageFileName
-            file_path = filedialog.askopenfilename(
-                title= "select an image file",
-                filetypes=[("Image files","*.jpg *.jpeg")]
-            )
-            if file_path:
-                imageFileName = str(file_path)
-            transformImage(imageFileName)
-            
-        def transformImage(self, image, transform):
-            image = Image.open(imageFileName)
-            raster = image.load()
-            w = image.width
-            h = image.height
-            transforms = [transform]
-            
-            scaleDownFactor = 0
-            
-            scaleUp = ["scaleUp", (int(w), int(h)), np.array([[1/scaleDownFactor, 0, 0],
-                                                              [0, 1/scaleDownFactor, 0],
-                                                              [0, 0, 1]])]
-            
-            scaleDown = ["scaleDown", (int(w * scaleDownFactor), int(h * scaleDownFactor)), np.array([[scaleDownFactor, 0, 0],
-                                                                                                      [0, scaleDownFactor, 0],
-                                                                                                      [0,               0, 1]])]
-
-            for name, size, matrix in transforms:
-    
-                openImage = Image.new("RGB", size)
-                openRaster = openImage.load()
-
-
-                invMatrix = np.linalg.inv(matrix)
-
-                for x in range(openImage.width):
-                    for y in range(openImage.height):
-                        vector = np.array([x, y, 1])
-                        result = invMatrix @ vector
-
-                        xp = int(result[0])
-                        yp = int(result[1])
-
-                        if 0 <= xp < image.width and 0 <= yp < image.height:
-                            newRaster[x, y] = raster[xp, yp]
-                    
                 
         file_button = tk.Button(
             self.image_select,
@@ -132,10 +91,80 @@ class application(tk.Frame):
             relief=tk.FLAT,
             font=("Arial", 26),
             text="Choose an Image",
-            command=lambda button = self:choose_file(button)
+            command=self.choose_file
         )
         
         file_button.grid(column=0, row=1)
+        
+    def choose_file(self):
+            global imageFileName
+            file_path = filedialog.askopenfilename(
+                title= "select an image file",
+                filetypes=[("Image files","*.jpg *.jpeg")]
+            )
+            if file_path:
+                imageFileName = str(file_path)
+                self.transformImageforViewing(imageFileName)
+            
+    def transformImageforViewing(self, image):
+        image = Image.open(imageFileName)
+        raster = image.load()
+        w = image.width
+        h = image.height
+        highestValue = max(w,h)
+        scaleDownFactor = round((500/highestValue),3)
+            
+        transforms = []
+            
+        scaleUp = ["scaleUp", (int(w), int(h)), np.array([[1/scaleDownFactor, 0, 0],
+                                                              [0, 1/scaleDownFactor, 0],
+                                                              [0, 0, 1]])]
+            
+        scaleDown = ["scaleDown", (int(w * scaleDownFactor), int(h * scaleDownFactor)), np.array([[scaleDownFactor, 0, 0],
+                                                                                                      [0, scaleDownFactor, 0],
+                                                                                                      [0,               0, 1]])]
+
+        if highestValue >= 500:
+            transforms = [scaleDown]
+        elif highestValue < 500:
+            transforms = [scaleUp]
+            
+        for name, size, matrix in transforms:
+    
+            openImage = Image.new("RGB", size)
+            openRaster = openImage.load()
+
+
+            invMatrix = np.linalg.inv(matrix)
+
+            for x in range(openImage.width):
+                for y in range(openImage.height):
+                    vector = np.array([x, y, 1])
+                    result = invMatrix @ vector
+
+                    xp = int(result[0])
+                    yp = int(result[1])
+
+                    if 0 <= xp < image.width and 0 <= yp < image.height:
+                        openRaster[x, y] = raster[xp, yp]
+        
+        self.display_image(openImage)
+        
+    def display_image(self, image):
+        
+        for widget in self.main_container.winfo_children():
+            widget.destroy()
+
+        self.main_container.grid_propagate(False)
+        
+        self.displayImage = ImageTk.PhotoImage(image)
+        display = tk.Label(
+            self.main_container,
+            image=self.displayImage,
+            background=self.color3 
+        )
+        display.place(relx=0.5, rely=0.5, anchor="center")
+        
     
     def create_function_menu(self):
         self.canvas = tk.Canvas(
@@ -163,6 +192,67 @@ class application(tk.Frame):
         
         self.function_menu.columnconfigure(0, weight=1)
         self.function_menu.rowconfigure(0, weight=1)
+        
+        file_button = tk.Button(
+            self.function_menu,
+            background=self.color1,
+            foreground=self.color5,
+            activebackground=self.color1,
+            activeforeground=self.color5,
+            relief=tk.FLAT,
+            font=("Arial", 26),
+            text="Scale Up"
+        )
+        
+        file_button.pack(pady=10, padx=10)
+        file_button1 = tk.Button(
+            self.function_menu,
+            background=self.color1,
+            foreground=self.color5,
+            activebackground=self.color1,
+            activeforeground=self.color5,
+            relief=tk.FLAT,
+            font=("Arial", 26),
+            text="Scale Down"
+        )
+        
+        file_button1.pack(pady=10, padx=10)
+        file_button2 = tk.Button(
+            self.function_menu,
+            background=self.color1,
+            foreground=self.color5,
+            activebackground=self.color1,
+            activeforeground=self.color5,
+            relief=tk.FLAT,
+            font=("Arial", 26),
+            text="Rotate"
+        )
+        
+        file_button2.pack(pady=10, padx=10)
+        file_button3 = tk.Button(
+            self.function_menu,
+            background=self.color1,
+            foreground=self.color5,
+            activebackground=self.color1,
+            activeforeground=self.color5,
+            relief=tk.FLAT,
+            font=("Arial", 26),
+            text="Translate"
+        )
+        
+        file_button3.pack(pady=10, padx=10)
+        file_button4 = tk.Button(
+            self.function_menu,
+            background=self.color1,
+            foreground=self.color5,
+            activebackground=self.color1,
+            activeforeground=self.color5,
+            relief=tk.FLAT,
+            font=("Arial", 26),
+            text="Horizontal Flip"
+        )
+        
+        file_button4.pack(pady=10, padx=10)
         
     
 root = tk.Tk()

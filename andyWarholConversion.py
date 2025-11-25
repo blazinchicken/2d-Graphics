@@ -55,8 +55,8 @@ for name, size, matrix in transforms:
 
 #kmeans pixel sampling
 
-k = 8
-iterations = 30
+k = 6
+iterations = 15
 color_count = dict()
 
 for y in range(openImage.height):
@@ -92,23 +92,25 @@ for i in range(iterations):
 
 finalImage = Image.new("RGB", (w,h))
 finalRaster = finalImage.load()
-palette1 = []
-palette2 = []
-palette3 = []
+
+all_palettes = [[] for _ in range(4)]
 
 for i in range(k):
-    palette1[i] = palette[i] * .3
-    palette2[i] = palette[i] * .5
-    palette3[i] = palette[i] * .7
+    r, g, b, *_ = palette[i]
     
+    all_palettes[0].append((r,g,b))
+    all_palettes[1].append(((r+100)%255,(g+100)%255,b))
+    all_palettes[2].append(((r+100)%255,g,(b+100)%255))
+    all_palettes[3].append((r,(g+100)%255,(b+100)%255))
+        
 for y in range(openImage.height):
     for x in range(openImage.width):
         pixel = openRaster[x,y]
         
         
         #want to make this more iterable, interactible and size to be defined by the user
-        finalRaster[x, y] = closest_color(pixel, palette)
-        finalRaster[x+openImage.width, y] =  closest_color(pixel, palette) #(int(pixel[0]),int(pixel[1]),int(pixel[2]))
-        finalRaster[x, y+openImage.height] = closest_color(pixel, palette)
-        finalRaster[x+openImage.width, y+openImage.height] = closest_color(pixel, palette)
+        finalRaster[x, y] = closest_color(pixel, all_palettes[0])
+        finalRaster[x+openImage.width, y] =  closest_color(pixel, all_palettes[1]) #(int(pixel[0]),int(pixel[1]),int(pixel[2]))
+        finalRaster[x, y+openImage.height] = closest_color(pixel, all_palettes[2])
+        finalRaster[x+openImage.width, y+openImage.height] = closest_color(pixel, all_palettes[3])
 finalImage.save('./andyWarhol.png')

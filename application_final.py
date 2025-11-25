@@ -3,6 +3,7 @@ import numpy as np
 import math
 import tkinter as tk
 from tkinter import filedialog
+import random
 
 class application(tk.Frame):
     
@@ -165,7 +166,137 @@ class application(tk.Frame):
         )
         display.place(relx=0.5, rely=0.5, anchor="center")
         
+    """++++++++++++++++++++++++|Functions for buttons go here|+++++++++++++++++++++++++++++++++"""
     
+    def andyWarholConversion(self):
+        if not imageFileName:
+            return FileNotFoundError
+        image = Image.open(imageFileName)
+        raster = image.load()
+        
+        #scaledown  -  200x200/2 = 100x100, with 100 + 100 = 200
+        scaleDownFactor = .5
+        w = image.width
+        h = image.height
+
+        def l1_difference(a,b):
+            return sum(abs(x-y) for x,y in zip(a,b))
+
+        def closest_color(color, color_list):
+            return min(color_list, key=lambda option: l1_difference(color, option))
+
+        def random_color():
+            return tuple(random.randint(0,255) for _ in range(3))
+
+        scaleDown = ["scaleDown", (int(w * scaleDownFactor), int(h * scaleDownFactor)), np.array([[scaleDownFactor, 0, 0],
+                                                                                                [0, scaleDownFactor, 0],
+                                                                                                [0,               0, 1]])]
+
+        transforms = [scaleDown]
+
+        for name, size, matrix in transforms:
+            openImage = Image.new("RGB", size)
+            openRaster = openImage.load()
+
+
+            invMatrix = np.linalg.inv(matrix)
+
+            for y in range(openImage.height):
+                for x in range(openImage.width):
+                    vector = np.array([x, y, 1])
+                    result = invMatrix @ vector
+
+                    xp = int(result[0])
+                    yp = int(result[1])
+
+                    if 0 <= xp < image.width and 0 <= yp < image.height:
+                        openRaster[x, y] = raster[xp, yp]
+
+
+        #kmeans pixel sampling
+
+        k = 5
+        iterations = 15
+        color_count = dict()
+
+        for y in range(openImage.height):
+            for x in range(openImage.width):
+                pixel = openRaster[x,y]
+                if pixel not in color_count:
+                    color_count[pixel] = 0
+                color_count[pixel] += 1
+
+        sorted_color_count = sorted(color_count.items(), key=lambda item:item[1], reverse=True)
+
+        palette = [random_color() for _ in range(k)]
+        for i in range(iterations):
+            print(palette)
+            close_color_list = [[] for _ in range(k)]
+
+            for color_count in sorted_color_count:
+                closest_palette_color = closest_color(color_count[0], palette)
+                closest_index = palette.index(closest_palette_color)
+                close_color_list[closest_index].append(color_count)
+                
+            for j in range(k):
+                close_list = close_color_list[j]
+                if len(close_list) == 0:
+                    palette[j] = random_color()
+                else:
+                    sums = [0,0,0]
+                    sum_weight = 0
+                    for color, count in close_list:
+                        sums = [a+b*count for a,b in zip(sums, color)]
+                        sum_weight +=count
+                    palette[j] = tuple(a//sum_weight for a in sums)
+
+        finalImage = Image.new("RGB", (w,h))
+        finalRaster = finalImage.load()
+
+        all_palettes = [[] for _ in range(4)]
+
+        for i in range(k):
+            r, g, b, *_ = palette[i]
+            
+            all_palettes[0].append((r,g,b))
+            all_palettes[1].append(((r+100)%255,g,b))
+            all_palettes[2].append((r,(g+100)%255,b))
+            all_palettes[3].append((r,g,(b+100)%255))
+                
+        for y in range(openImage.height):
+            for x in range(openImage.width):
+                pixel = openRaster[x,y]
+                
+                
+                #want to make this more iterable, interactible and size to be defined by the user
+                finalRaster[x, y] = closest_color(pixel, all_palettes[0])
+                finalRaster[x+openImage.width, y] =  closest_color(pixel, all_palettes[1]) #(int(pixel[0]),int(pixel[1]),int(pixel[2]))
+                finalRaster[x, y+openImage.height] = closest_color(pixel, all_palettes[2])
+                finalRaster[x+openImage.width, y+openImage.height] = closest_color(pixel, all_palettes[3])
+        self.display_image(finalImage)
+        finalImage.save('./andyWarhol.png')
+        
+        
+    def sepia(self): 
+        finalImage = Image.open(imageFileName)
+        raster = finalImage.load()
+        
+        for x in range(finalImage.width):
+            for y in range(finalImage.height):
+                r, g, b, *_ = raster[x,y]
+
+
+                #algorithm found https://www.geeksforgeeks.org/java/image-processing-in-java-colored-image-to-sepia-image-conversion
+                newRed = 0.393*r + 0.769*g + 0.189*b
+                newGreen = 0.349*r + 0.686*g + 0.168*b
+                newBlue = 0.272*r + 0.534*g + 0.131*b
+                
+                raster[x,y] = (int(newRed), int(newGreen), int(newBlue))
+                
+        self.display_image(finalImage)
+        finalImage.save("./sepia.png")
+        
+    """++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++"""
     def create_function_menu(self):
         self.canvas = tk.Canvas(
             self.main_frame,
@@ -253,7 +384,32 @@ class application(tk.Frame):
         )
         
         file_button4.pack(pady=10, padx=10)
+        file_button5 = tk.Button(
+            self.function_menu,
+            background=self.color1,
+            foreground=self.color5,
+            activebackground=self.color1,
+            activeforeground=self.color5,
+            relief=tk.FLAT,
+            font=("Arial", 26),
+            text="Andy Warhol",
+            command=self.andyWarholConversion
+        )
         
+        file_button5.pack(pady=10, padx=10)
+        file_button6 = tk.Button(
+            self.function_menu,
+            background=self.color1,
+            foreground=self.color5,
+            activebackground=self.color1,
+            activeforeground=self.color5,
+            relief=tk.FLAT,
+            font=("Arial", 26),
+            text="Sepia",
+            command=self.sepia
+        )
+        
+        file_button6.pack(pady=10, padx=10)
     
 root = tk.Tk()
 root.title("2D Graphical Interface")

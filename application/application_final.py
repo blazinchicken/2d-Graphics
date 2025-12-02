@@ -107,8 +107,9 @@ class application(tk.Frame):
                 imageFileName = str(file_path)
                 self.transformImageforViewing(imageFileName)
             
-    def transformImageforViewing(self, image):
-        image = Image.open(imageFileName)
+    def transformImageforViewing(self, image:Image, switch:int=None):
+        if not switch:
+            image = Image.open(imageFileName)
         raster = image.load()
         w = image.width
         h = image.height
@@ -151,7 +152,7 @@ class application(tk.Frame):
         
         self.display_image(openImage)
         
-    def display_image(self, image):
+    def display_image(self, image:Image):
         
         for widget in self.main_container.winfo_children():
             widget.destroy()
@@ -215,8 +216,8 @@ class application(tk.Frame):
 
         #kmeans pixel sampling
 
-        k = 5
-        iterations = 15
+        k = 8
+        iterations = 10
         color_count = dict()
 
         for y in range(openImage.height):
@@ -273,9 +274,10 @@ class application(tk.Frame):
                 finalRaster[x+openImage.width, y] =  closest_color(pixel, all_palettes[1]) #(int(pixel[0]),int(pixel[1]),int(pixel[2]))
                 finalRaster[x, y+openImage.height] = closest_color(pixel, all_palettes[2])
                 finalRaster[x+openImage.width, y+openImage.height] = closest_color(pixel, all_palettes[3])
-        self.display_image(finalImage)
+        self.transformImageforViewing(finalImage, 1)
         finalImage.save('./andyWarhol.png')
         
+    """============================================================="""
         
     def sepia(self): 
         finalImage = Image.open(imageFileName)
@@ -293,8 +295,123 @@ class application(tk.Frame):
                 
                 raster[x,y] = (int(newRed), int(newGreen), int(newBlue))
                 
-        self.display_image(finalImage)
+        self.transformImageforViewing(finalImage, 1)
         finalImage.save("./sepia.png")
+        
+    """============================================================="""
+    
+    def pixelate(self):
+        image = Image.open(imageFileName)
+        raster = image.load()
+
+        w = image.width
+        h = image.height
+
+        scaleDownFactor = .25
+
+        scaleDown = ["scaleDown", (int(w * scaleDownFactor), int(h * scaleDownFactor)), np.array([[scaleDownFactor, 0, 0],
+                                                                                                [0, scaleDownFactor, 0],
+                                                                                                [0,               0, 1]])]
+
+        scaleUp = ["scaleUp", (int(w), int(h)), np.array([[1/scaleDownFactor, 0, 0],
+                                                        [0, 1/scaleDownFactor, 0],
+                                                        [0, 0, 1]])]
+
+        transforms = [scaleDown]
+        transform2 = [scaleUp]
+
+        for name, size, matrix in transforms:
+            
+            newImage = Image.new("RGB", size)
+            newRaster = newImage.load()
+
+
+            invMatrix = np.linalg.inv(matrix)
+
+            for x in range(newImage.width):
+                for y in range(newImage.height):
+                    vector = np.array([x, y, 1])
+                    result = invMatrix @ vector
+
+                    xp = int(result[0])
+                    yp = int(result[1])
+
+                    if 0 <= xp < image.width and 0 <= yp < image.height:
+                        newRaster[x, y] = raster[xp, yp]
+                        
+        for name, size, matrix in transform2:
+            
+            finalImage = Image.new("RGB", size)
+            finalRaster = finalImage.load()
+
+
+            invMatrix = np.linalg.inv(matrix)
+
+            for x in range(finalImage.width):
+                for y in range(finalImage.height):
+                    vector = np.array([x, y, 1])
+                    result = invMatrix @ vector
+
+                    xp = int(result[0])
+                    yp = int(result[1])
+
+                    if 0 <= xp < newImage.width and 0 <= yp < newImage.height:
+                        finalRaster[x, y] = newRaster[xp, yp]
+
+            self.transformImageforViewing(finalImage, 1)
+            finalImage.save(name + ".png")
+        
+    """============================================================="""
+        
+    def vignette(self):
+            image = Image.open(imageFileName)
+            raster = image.load()
+
+            imageCenter = (image.width/2, image.height/2)
+            imageX, imageY = imageCenter
+
+            vignetteScale = imageY*1.2
+
+            print(imageCenter)
+
+            #distance formula = sqrt((x2-x1)**2 + (y2-y1)**2)
+            def distance(x1,x2,y1,y2):
+                d = math.sqrt((x2-x1)**2 + (y2-y1)**2)
+                return d
+
+            for x in range(image.width):
+                for y in range(image.height):
+
+                    pixel = raster [x,y]
+
+                    r = pixel[0]
+                    g = pixel[1]
+                    b = pixel[2]
+
+                    #v = int(.2*r + .7*g + .1*b)
+                    powerScale = 0
+                    
+                    if(distance(imageX, x, imageY, y) >= vignetteScale):
+                        powerScale = (((distance(imageX, x, imageY, y)) - vignetteScale)*5)
+
+                        #print(powerScale)
+
+                        if(powerScale < 0):
+                            break
+
+                        r = r - int(powerScale)
+                        g = g - int(powerScale)
+                        b = b - int(powerScale)
+                    
+                        raster[x,y] = (r, g, b)
+                    else:
+                        raster[x, y] = (r, g, b)
+            
+            self.transformImageforViewing(image, 1)
+            image.save('./bw_vignette.png')
+            
+    """============================================================="""
+            
         
     """++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++"""
     def create_function_menu(self):
@@ -410,7 +527,32 @@ class application(tk.Frame):
         )
         
         file_button6.pack(pady=10, padx=10)
-    
+        file_button7 = tk.Button(
+            self.function_menu,
+            background=self.color1,
+            foreground=self.color5,
+            activebackground=self.color1,
+            activeforeground=self.color5,
+            relief=tk.FLAT,
+            font=("Arial", 26),
+            text="Pixelate",
+            command=self.pixelate
+        )
+        
+        file_button7.pack(pady=10, padx=10)
+        file_button8 = tk.Button(
+            self.function_menu,
+            background=self.color1,
+            foreground=self.color5,
+            activebackground=self.color1,
+            activeforeground=self.color5,
+            relief=tk.FLAT,
+            font=("Arial", 26),
+            text="Vignette",
+            command=self.vignette 
+        )
+        
+        file_button8.pack(pady=10, padx=10)
 root = tk.Tk()
 root.title("2D Graphical Interface")
 root.geometry("1280x860")

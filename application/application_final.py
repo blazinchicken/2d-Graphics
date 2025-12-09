@@ -10,7 +10,6 @@ class application(tk.Frame):
     def  __init__(self, root):
         
         self.current_page_index = 0
-        self.pages = []
         self.color1 = "#135E4B"
         self.color2 = "#4CB572"
         self.color3 = "#A1D8B5"
@@ -40,7 +39,6 @@ class application(tk.Frame):
         self.create_title_display()
         self.create_function_menu()
         self.create_image_select()
-        #self.pages[self.current_page_index]()
     
     def clear_frame(self, frame):
         for child in frame.winfo_children():
@@ -50,8 +48,8 @@ class application(tk.Frame):
         self.main_container = tk.Frame(
             self.main_frame,
             background=self.color3,
-            width=500,
-            height=500
+            width=1000,
+            height=600
         )
         self.main_container.pack_propagate(False)
         self.main_container.columnconfigure(0, weight=1)
@@ -65,7 +63,7 @@ class application(tk.Frame):
             background=self.color2,
             foreground=self.color6,
             font=('Ariel', 30, 'bold'),
-            text="File Chosen!"
+            text="Image Editor"
         )
         self.title_container.columnconfigure(0, weight=1)
         self.title_container.rowconfigure(1, weight=1)
@@ -114,22 +112,13 @@ class application(tk.Frame):
         w = image.width
         h = image.height
         highestValue = max(w,h)
-        scaleDownFactor = round((500/highestValue),3)
-            
-        transforms = []
-            
-        scaleUp = ["scaleUp", (int(w), int(h)), np.array([[1/scaleDownFactor, 0, 0],
-                                                              [0, 1/scaleDownFactor, 0],
-                                                              [0, 0, 1]])]
+        scaleDownFactor = round((700/highestValue),3)
             
         scaleDown = ["scaleDown", (int(w * scaleDownFactor), int(h * scaleDownFactor)), np.array([[scaleDownFactor, 0, 0],
                                                                                                       [0, scaleDownFactor, 0],
                                                                                                       [0,               0, 1]])]
 
-        if highestValue >= 500:
-            transforms = [scaleDown]
-        elif highestValue < 500:
-            transforms = [scaleUp]
+        transforms = [scaleDown]
             
         for name, size, matrix in transforms:
     
@@ -231,7 +220,6 @@ class application(tk.Frame):
 
         palette = [random_color() for _ in range(k)]
         for i in range(iterations):
-            print(palette)
             close_color_list = [[] for _ in range(k)]
 
             for color_count in sorted_color_count:
@@ -347,8 +335,8 @@ class application(tk.Frame):
 
             invMatrix = np.linalg.inv(matrix)
 
-            for x in range(finalImage.width):
-                for y in range(finalImage.height):
+            for y in range(finalImage.height):
+                for x in range(finalImage.width):
                     vector = np.array([x, y, 1])
                     result = invMatrix @ vector
 
@@ -359,7 +347,7 @@ class application(tk.Frame):
                         finalRaster[x, y] = newRaster[xp, yp]
 
             self.transformImageforViewing(finalImage, 1)
-            finalImage.save(name + ".png")
+            finalImage.save("pixelate.png")
         
     """============================================================="""
         
@@ -411,7 +399,183 @@ class application(tk.Frame):
             image.save('./bw_vignette.png')
             
     """============================================================="""
+    
+    def color_inversion(self):
+        image = Image.open(imageFileName)
+        raster = image.load()
+        
+        def rgb_to_hsv(r, g, b):
+            _max = max(r, g, b)
+            _min = min(r, g, b)
+            _diff = _max-_min
+
+            v = _max
+            if v == 0:
+                return 0, 0, 0
             
+            s = (_max-_min)/_max
+            if s == 0:
+                return 0, s, v
+            
+            if r == _max:
+                h = (360 + ((g-b)*60/_diff))%360
+            elif g == _max:
+                h = 120 + ((b-r)*60/_diff)
+            elif b == _max:
+                h = 240 + ((r-g)*60/_diff)
+            
+            return h, s, v
+
+        def hsv_to_rgb(h, s, v):
+            _max = v
+            _min = _max - s*_max
+
+            f = (_max-_min)/60
+
+
+            if h < 60: return (_max, ((h-0)*f+_min), _min)
+            if h < 120: return ((_min-(h-120)*f), _max, _min)
+            if h < 180: return (_min, _max, (_min-(h-120)*f))
+            if h < 240: return (_min, (_min-(h-240)*f), _max)
+            if h < 300: return (((h-240)*f+_min), _min, _max)
+            if h < 360: return (_max, _min, (_min-(h-360)*f))
+            
+        for x in range(image.width):
+            for y in range(image.height):
+                r, g, b, *_ = raster[x,y]
+
+                h, s, v = rgb_to_hsv(r, g, b)
+                #line that inverts
+                h = (h + 180) % 360
+                r, g, b = hsv_to_rgb(h, s, v)
+
+
+                raster[x,y] = (int(r), int(g), int(b))
+        self.transformImageforViewing(image, 1)
+        image.save("./hsvConversion.png")
+        
+    """============================================================="""
+        
+    def transform(self, transformType):
+        image = Image.open(imageFileName)
+        raster = image.load()
+
+        w = image.width
+        h = image.height
+        chosen = ""
+
+        scaleDownFactor = .25
+
+        scaleDown = ["scaleDown", (int(w * scaleDownFactor), int(h * scaleDownFactor)), np.array([[scaleDownFactor, 0, 0],
+                                                                                                [0, scaleDownFactor, 0],
+                                                                                                [0,               0, 1]])]
+
+        scaleUp = ["scaleUp", (int(w), int(h)), np.array([[1/scaleDownFactor, 0, 0],
+                                                        [0, 1/scaleDownFactor, 0],
+                                                        [0, 0, 1]])]
+        
+        horizontalFlip = ["horizontalFlip", (w, h), np.array([[-1, 0, w-1],
+                                                            [0,  1,   0],
+                                                            [0,  0,   1]])]
+
+        translate = ["translate", (w,h), np.array([[1, 0,  100],
+                                                [0, 1, -200],
+                                                [0, 0,    1]])]
+
+        radians = math.radians(45)
+
+        rotationMatrix = np.array([[math.cos(radians), -math.sin(radians), 0],
+                                [math.sin(radians), math.cos(radians),   0],
+                                [0,               0,                     1]])
+
+        corners = [np.array([0, 0, 1]), np.array([w, 0, 1]), np.array([w, h, 1]), np.array([0, h, 1])]
+        rotatedCorners = [rotationMatrix @ corner for corner in corners]
+
+        xs = [rotatedCorner[0] for rotatedCorner in rotatedCorners]
+        ys = [rotatedCorner[1] for rotatedCorner in rotatedCorners]
+
+        newWidth = int(max(xs) - min(xs))
+        newHeight = int(max(ys) - min(ys))
+        newSize = (newWidth, newHeight)
+
+        shiftUpLeft = np.array([[1, 0, -w/2],
+                                [0, 1, -h/2],
+                                [0, 0,    1]])
+
+        shiftDownRight = np.array([[1, 0, newWidth/2],
+                                [0, 1, newHeight/2],
+                                [0, 0, 1]])
+
+        centeredRotation = shiftDownRight @ rotationMatrix @ shiftUpLeft
+
+        rotation = ["rotation", newSize, centeredRotation]
+        
+        if transformType == "rotation":
+            chosen = rotation
+        elif transformType == "horizontalFlip":
+            chosen = horizontalFlip
+        elif transformType == "translate":
+            chosen = translate
+        elif transformType == "scaleDown":
+            chosen = scaleDown
+        elif transformType == "scaleUp":
+            chosen = scaleUp
+        else:
+            return None
+        transforms = [chosen]
+
+        for name, size, matrix in transforms:
+            newImage = Image.new("RGB", size)
+            newRaster = newImage.load()
+            
+            invMatrix = np.linalg.inv(matrix)
+            
+            for x in range(newImage.width):
+                for y in range(newImage.height):
+                    vector = np.array([x, y, 1])
+                    result = invMatrix @ vector
+                    
+                    xp = result[0]
+                    yp = result[1]
+                    
+                    if 0 <= xp < image.width and 0 <= yp < image.height:
+                        newRaster[x, y] = raster[int(xp), int(yp)]
+                        
+        self.transformImageforViewing(newImage, 1)
+        newImage.save(name + ".png")
+        
+    """============================================================="""
+        
+    def watermark(self):
+        image = Image.open(imageFileName)
+        raster = image.load()
+
+        watermark = Image.open('./TestWatermark.png').convert("RGB")
+        watermarkRaster = watermark.load()
+
+        opacity = .4
+
+        offsetX = image.width - watermark.width
+        offsetY = image.height - watermark.height
+
+        for y in range(watermark.height):
+            for x in range(watermark.width):
+                wr, wg, wb = watermarkRaster[x,y]
+                
+                imageX = x + offsetX
+                imageY = y + offsetY
+                
+                r, g, b = raster[imageX, imageY]
+                
+                newR = int(r * (1-opacity) + wr * opacity)
+                newG = int(g * (1-opacity) + wg * opacity)
+                newB = int(b * (1-opacity) + wb * opacity)
+                
+                
+                raster[imageX, imageY] = (newR, newG, newB)
+        
+        self.transformImageforViewing(image, 1)
+        image.save('./watermark.png')
         
     """++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++"""
     def create_function_menu(self):
@@ -449,7 +613,8 @@ class application(tk.Frame):
             activeforeground=self.color5,
             relief=tk.FLAT,
             font=("Arial", 26),
-            text="Scale Up"
+            text="Scale Up",
+            command=lambda: self.transform("scaleUp")
         )
         
         file_button.pack(pady=10, padx=10)
@@ -461,7 +626,8 @@ class application(tk.Frame):
             activeforeground=self.color5,
             relief=tk.FLAT,
             font=("Arial", 26),
-            text="Scale Down"
+            text="Scale Down",
+            command=lambda: self.transform("scaleDown")
         )
         
         file_button1.pack(pady=10, padx=10)
@@ -473,7 +639,8 @@ class application(tk.Frame):
             activeforeground=self.color5,
             relief=tk.FLAT,
             font=("Arial", 26),
-            text="Rotate"
+            text="Rotate",
+            command=lambda: self.transform("rotation")
         )
         
         file_button2.pack(pady=10, padx=10)
@@ -485,7 +652,8 @@ class application(tk.Frame):
             activeforeground=self.color5,
             relief=tk.FLAT,
             font=("Arial", 26),
-            text="Translate"
+            text="Translate",
+            command=lambda: self.transform("translate")
         )
         
         file_button3.pack(pady=10, padx=10)
@@ -497,7 +665,8 @@ class application(tk.Frame):
             activeforeground=self.color5,
             relief=tk.FLAT,
             font=("Arial", 26),
-            text="Horizontal Flip"
+            text="Horizontal Flip",
+            command=lambda: self.transform("horizontalFlip")
         )
         
         file_button4.pack(pady=10, padx=10)
@@ -553,6 +722,32 @@ class application(tk.Frame):
         )
         
         file_button8.pack(pady=10, padx=10)
+        file_button9 = tk.Button(
+            self.function_menu,
+            background=self.color1,
+            foreground=self.color5,
+            activebackground=self.color1,
+            activeforeground=self.color5,
+            relief=tk.FLAT,
+            font=("Arial", 26),
+            text="Color Inversion",
+            command=self.color_inversion 
+        )
+        
+        file_button9.pack(pady=10, padx=10)
+        file_button10 = tk.Button(
+            self.function_menu,
+            background=self.color1,
+            foreground=self.color5,
+            activebackground=self.color1,
+            activeforeground=self.color5,
+            relief=tk.FLAT,
+            font=("Arial", 26),
+            text="Watermark",
+            command=self.watermark 
+        )
+        
+        file_button10.pack(pady=10, padx=10)
 root = tk.Tk()
 root.title("2D Graphical Interface")
 root.geometry("1280x860")

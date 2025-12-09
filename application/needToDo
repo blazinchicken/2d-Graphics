@@ -1,0 +1,19 @@
+Need to Do for final Project
+____________________________
+||||||||||||||||||||||||||||
+
+1. Additional features
+    a. Colorblind: what an image looks like to someone who is Colorblind
+        - this seems easier to do, as I could sample all the colors of an image, and clamp the ones that are outside a range to exist within a range
+        
+        - either that or i could swap the image into hsv, and create an algorithm that checks if a hue value is within a range, then clamp said image to outside this hue range
+
+   done!!! b. rotation and other basic transforms (shift, horizontal flip)
+        - this is easy, have the information within the github from prof and can implement quite easily.
+    
+    c. blur
+        - this could be a pretty deep rabbit hole, I want to add atleast an easy blur, and then maybe a crazy one for the sake of the final presentation
+    
+    done !! d. adding a watermark
+        - idk i thought it would be cool to try to read the documentation for pillow to see if there was an easy way to implement an overlay, not something that uses the library exstensively, but a way that i could overlay another color on top of an image thats already been implemented.
+            - this could be done using a fixed image, tracking the positions of the image, and then looping over it in blocks for as big as the image is. I would do this with a small watermark to start but could be fairly simple.

@@ -99,7 +99,7 @@ class application(tk.Frame):
             global imageFileName
             file_path = filedialog.askopenfilename(
                 title= "select an image file",
-                filetypes=[("Image files","*.jpg *.jpeg")]
+                filetypes=[("Image files","*.jpg *.jpeg *.png")]
             )
             if file_path:
                 imageFileName = str(file_path)
@@ -112,7 +112,11 @@ class application(tk.Frame):
         w = image.width
         h = image.height
         highestValue = max(w,h)
-        scaleDownFactor = round((700/highestValue),3)
+        
+        max_w = 1000
+        max_h = 600
+        
+        scaleDownFactor = min(max_w/w, max_h/h)#round((700/highestValue),3)
             
         scaleDown = ["scaleDown", (int(w * scaleDownFactor), int(h * scaleDownFactor)), np.array([[scaleDownFactor, 0, 0],
                                                                                                       [0, scaleDownFactor, 0],
@@ -577,6 +581,32 @@ class application(tk.Frame):
         self.transformImageforViewing(image, 1)
         image.save('./watermark.png')
         
+    """============================================================="""
+        
+    def oilBlur(self):
+        image = Image.open(imageFileName)
+        raster = image.load()
+
+
+        for y in range(1, image.height-1):
+            for x in range(1, image.width-1):
+                    pixelRandom1 = raster[x,y-1]
+                    pixelRandom2 = raster[x-1,y-1]
+                    pixelRandom3 = raster[x-1,y]
+                    pixelRandom4 = raster[x-1,y+1]
+                    pixelRandom5 = raster[x+1,y]
+                    pixelRandom6 = raster[x,y+1]
+                    pixelRandom7 = raster[x+1,y+1]
+                    pixelRandom8 = raster[x+1,y-1]
+                        
+                    randomDict = [pixelRandom1, pixelRandom2, pixelRandom3, pixelRandom4, pixelRandom5, pixelRandom6, pixelRandom7, pixelRandom8]
+                        
+                    chosenPixel = randomDict[math.floor(random.randint(0,7))]
+                        
+                    raster[x,y] = chosenPixel
+        self.transformImageforViewing(image, 1)
+        image.save("./blur.png")
+        
     """++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++"""
     def create_function_menu(self):
         self.canvas = tk.Canvas(
@@ -748,6 +778,19 @@ class application(tk.Frame):
         )
         
         file_button10.pack(pady=10, padx=10)
+        file_button11 = tk.Button(
+            self.function_menu,
+            background=self.color1,
+            foreground=self.color5,
+            activebackground=self.color1,
+            activeforeground=self.color5,
+            relief=tk.FLAT,
+            font=("Arial", 26),
+            text="Oil Paint Filter",
+            command=self.oilBlur 
+        )
+        
+        file_button11.pack(pady=10, padx=10)
 root = tk.Tk()
 root.title("2D Graphical Interface")
 root.geometry("1280x860")
